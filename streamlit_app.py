@@ -18,6 +18,7 @@ APP_NAME = 'Product Review Analysis'
 HUGGINGFACE_PARAPHRASE_API_URL = "https://api-inference.huggingface.co/models/tuner007/pegasus_paraphrase"
 
 DISPLAY_MAX_REVIEWS = 100
+MUST_INCLUDES = ['love', 'like', 'hate', 'cheap']
 ADDITIONAL_STOPWORDS = []
 TOTAL_NGRAMS = 20
 HAPPY_NGRAMS_TOTAL = 3
@@ -78,7 +79,7 @@ def extract_sentence(text, words):
     return sentences
 
 def main():
-    global ADDITIONAL_STOPWORDS, DISPLAY_MAX_REVIEWS, HUGGINGFACE_PARAPHRASE_API_URL, TOTAL_NGRAMS, HAPPY_NGRAMS_TOTAL, UNHAPPY_NGRAMS_TOTAL
+    global MUST_INCLUDES, ADDITIONAL_STOPWORDS, DISPLAY_MAX_REVIEWS, HUGGINGFACE_PARAPHRASE_API_URL, TOTAL_NGRAMS, HAPPY_NGRAMS_TOTAL, UNHAPPY_NGRAMS_TOTAL
 
     huggingface_api_token = ''
 
@@ -87,10 +88,11 @@ def main():
 
     st.sidebar.subheader('Settings')
     with st.sidebar.expander('General', False):
+        MUST_INCLUDES = [w.strip() for w in st.text_input('Must Include Words', ', '.join(MUST_INCLUDES)).split(',')]
         DISPLAY_MAX_REVIEWS = int(st.number_input('Display Max Reviews', value=DISPLAY_MAX_REVIEWS))
     
     with st.sidebar.expander('Ngrams', False):
-        ADDITIONAL_STOPWORDS = [w.strip() for w in st.text_input('Stopwords (comma seperated)', ', '.join(ADDITIONAL_STOPWORDS)).split(',')]
+        ADDITIONAL_STOPWORDS = [w.strip() for w in st.text_input('Stopwords', ', '.join(ADDITIONAL_STOPWORDS)).split(',')]
         TOTAL_NGRAMS = int(st.number_input('Total Ngrams', 1, 50, TOTAL_NGRAMS))
         HAPPY_NGRAMS_TOTAL = int(st.number_input('Happy Ngram Length', 1, 5, HAPPY_NGRAMS_TOTAL))
         UNHAPPY_NGRAMS_TOTAL = int(st.number_input('Unhappy Ngram Length', 1, 5, UNHAPPY_NGRAMS_TOTAL))
@@ -148,25 +150,33 @@ def main():
                 selected_reviews = []
 
                 selected_ngram = st.selectbox('Select Ngrams', merge_ngram_words(ngram_list))
+                ngram_regex = ''.join(f'.*({w})' for w in selected_ngram.split(' '))
+
+                selected_must_includes = st.multiselect('Select Must Include Words', MUST_INCLUDES)
+                must_include_regex = '|'.join(r'\b(' + w + r')\b' for w in selected_must_includes)
 
                 df = happy_reviews if review_type == REVIEW_TYPE_HAPPY else unhappy_reviews
-                filtered_df = df[df[COLUMN_REVIEW_TEXT].str.contains(''.join(f'.*({w})' for w in selected_ngram.split(' ')), regex=True, case=False, na=False)]
+                df = df[df[COLUMN_REVIEW_TEXT].str.contains(ngram_regex, regex=True, case=False, na=False)]
+                if len(must_include_regex):
+                    df = df[df[COLUMN_REVIEW_TEXT].str.contains(must_include_regex, regex=True, case=False, na=False)]
+
                 
-                with st.expander(f'{review_type} Reviews ({len(filtered_df)})'):
+                with st.expander(f'{review_type} Reviews ({len(df)})'):
                     i = 0
-                    for original_review in filtered_df[COLUMN_REVIEW_TEXT][:DISPLAY_MAX_REVIEWS]:
-                        st.subheader(filtered_df.iloc[i][COLUMN_REVIEW_TITLE] + ' ' + '⭐' * int(filtered_df.iloc[i][COLUMN_RATING]))
+                    for original_review in df[COLUMN_REVIEW_TEXT][:DISPLAY_MAX_REVIEWS]:
+                        st.subheader(df.iloc[i][COLUMN_REVIEW_TITLE] + ' ' + '⭐' * int(df.iloc[i][COLUMN_RATING]))
                         
                         review = original_review
-                        words = list(set(selected_ngram.split(' ')))
+                        ngram_words = list(set(selected_ngram.split(' ')))
                         
-                        for word in words:
+                        for word in ngram_words + selected_must_includes:
                             pattern = re.compile(re.escape(word), re.IGNORECASE)
-                            review = pattern.sub('<span style="background:yellow">' + word + '</span>', review)
+                            highlight_color = '#aaffaa' if word in selected_must_includes else 'yellow'
+                            review = pattern.sub(f'<span style="background:{highlight_color}">' + word + '</span>', review)
                         st.markdown(review, unsafe_allow_html=True)
 
 
-                        extracted_sents = extract_sentence(original_review, words)
+                        extracted_sents = list(set(extract_sentence(original_review, ngram_words) + extract_sentence(original_review, selected_must_includes)))
                         if len(extracted_sents):
                             j = 0
                             for sent in extracted_sents:
@@ -196,7 +206,7 @@ def main():
 
                         st.write('---')
                         i += 1
-                    st.markdown(f'*{min(DISPLAY_MAX_REVIEWS, len(filtered_df))} of {len(filtered_df)} reviews*')
+                    st.markdown(f'*{min(DISPLAY_MAX_REVIEWS, len(df))} of {len(df)} reviews*')
                 
                 with st.expander(f'Selected {review_type} Reviews ({len(selected_reviews)})'):
                     for review in selected_reviews:
