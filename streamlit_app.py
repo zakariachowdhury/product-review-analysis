@@ -147,7 +147,8 @@ def main():
                 
 
                 st.header('Reviews')
-                selected_reviews = []
+                if 'selected_reviews' not in st.session_state:
+                    st.session_state.selected_reviews = {REVIEW_TYPE_HAPPY: [], REVIEW_TYPE_UNHAPPY: []}
 
                 selected_ngram = st.selectbox('Select Ngrams', merge_ngram_words(ngram_list))
                 ngram_regex = ''.join(f'.*({w})' for w in selected_ngram.split(' '))
@@ -186,18 +187,26 @@ def main():
                                 col1, col2, col3 = st.columns(3)
                                 
                                 with col1:
-                                    if st.checkbox('Select review', key='select-button-' + str(i) + str(j)):
-                                        selected_reviews.append(sent.strip())
+                                    should_select_review = True if sent.strip() in st.session_state.selected_reviews[review_type] else False
+                                    if st.checkbox('Select review', key='-'.join([review_type, selected_ngram, 'select-review-checkbox', str(i), str(j)]), value=should_select_review):
+                                        if sent.strip() not in st.session_state.selected_reviews[review_type]:
+                                            st.session_state.selected_reviews[review_type].append(sent.strip())
+                                    elif sent.strip() in st.session_state.selected_reviews[review_type]:
+                                        st.session_state.selected_reviews[review_type].remove(sent.strip())
 
                                 with col2:
                                     if len(huggingface_api_token) and len(HUGGINGFACE_PARAPHRASE_API_URL):
-                                        if st.checkbox('Paraphrase', key='paraphrase-button-' + str(i) + '-' + str(j)):
-                                            para_text = paraphrase(review, huggingface_api_token)
+                                        if st.checkbox('Paraphrase', key='-'.join([review_type, selected_ngram, 'paraphrase-checkbox', str(i), str(j)])):
+                                            para_text = paraphrase(sent, huggingface_api_token)
                                             if len(para_text):
                                                 container.warning(para_text)
                                                 with col3:
-                                                    if st.checkbox('Select paraphrase', key='select-paraphrase-' + str(i) + '-' + str(j)):
-                                                        selected_reviews.append(para_text.strip())
+                                                    should_select_paraphrase = True if para_text.strip() in st.session_state.selected_reviews[review_type] else False
+                                                    if st.checkbox('Select paraphrase', key='-'.join([review_type, selected_ngram, 'select-paraphrase-checkbox', str(i), str(j)]), value=should_select_paraphrase):
+                                                        if para_text.strip() not in st.session_state.selected_reviews[review_type]:
+                                                            st.session_state.selected_reviews[review_type].append(para_text.strip())
+                                                    elif para_text.strip() in st.session_state.selected_reviews[review_type]:
+                                                        st.session_state.selected_reviews[review_type].remove(para_text.strip())
                                             else:
                                                 container.error('Unable to paraphrase this sentence')
                                 j += 1
@@ -208,14 +217,15 @@ def main():
                         i += 1
                     st.markdown(f'*{min(DISPLAY_MAX_REVIEWS, len(df))} of {len(df)} reviews*')
                 
-                with st.expander(f'Selected {review_type} Reviews ({len(selected_reviews)})'):
-                    for review in selected_reviews:
+            for review_type in [REVIEW_TYPE_HAPPY, REVIEW_TYPE_UNHAPPY]:
+                with st.expander(f'Selected {review_type} Reviews ({len(st.session_state.selected_reviews[review_type])})'):
+                    for review in st.session_state.selected_reviews[review_type]:
                         st.markdown('* ' + review)
                         st.write('')
-                    if len(selected_reviews):
+                    if len(st.session_state.selected_reviews[review_type]):
                         st.download_button(
                             label = f"Download",
-                            data=review_type + ' Reviews:\n- ' + '\n- '.join(selected_reviews),
+                            data=review_type + ' Reviews:\n- ' + '\n- '.join(st.session_state.selected_reviews[review_type]),
                             file_name = f'{selected_product_asin}-{review_type.lower()}-reviews.txt',
                             mime='text/plain'
                         )
