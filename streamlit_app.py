@@ -4,10 +4,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import re
 import unicodedata
+import requests
+
 import nltk
+nltk.download('stopwords')
+nltk.download('punkt')
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
-import requests
 
 APP_NAME = 'Product Review Analysis'
 
