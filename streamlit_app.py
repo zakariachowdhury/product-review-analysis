@@ -74,7 +74,7 @@ def extract_sentence(text, words):
     for sen in sent_tokenize(text):
         l = word_tokenize(sen)
         intersection = len(set(l).intersection(words))
-        if intersection >= len(words) - 1 and len(words) > 1:
+        if (intersection >= len(words) and len(words) > 0) or (intersection >= len(words) - 1 and len(words) > 1):
             sentences.append(sen)
     return sentences
 
@@ -170,12 +170,12 @@ def main():
                         review = original_review
                         ngram_words = list(set(selected_ngram.split(' ')))
                         
-                        for word in ngram_words + selected_must_includes:
+                        highlighted_wordss = list(set(ngram_words + selected_must_includes))
+                        for word in highlighted_wordss:
                             pattern = re.compile(re.escape(word), re.IGNORECASE)
                             highlight_color = '#aaffaa' if word in selected_must_includes else 'yellow'
                             review = pattern.sub(f'<span style="background:{highlight_color}">' + word + '</span>', review)
                         st.markdown(review, unsafe_allow_html=True)
-
 
                         extracted_sents = list(set(extract_sentence(original_review, ngram_words) + extract_sentence(original_review, selected_must_includes)))
                         if len(extracted_sents):
