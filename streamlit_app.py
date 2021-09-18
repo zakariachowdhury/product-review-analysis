@@ -7,8 +7,9 @@ import unicodedata
 import requests
 
 import nltk
-nltk.download('stopwords')
+nltk.download('wordnet')
 nltk.download('punkt')
+nltk.download('all-corpora')
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
 
