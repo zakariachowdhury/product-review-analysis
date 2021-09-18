@@ -7,7 +7,7 @@ import unicodedata
 import requests
 
 import nltk
-nltk.downllad('stopwords')
+nltk.download('stopwords')
 nltk.download('wordnet')
 nltk.download('punkt')
 from nltk.corpus import stopwords
