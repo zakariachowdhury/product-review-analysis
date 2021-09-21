@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import re
 import unicodedata
 import requests
+import random
 
 import nltk
 nltk.download('stopwords')
@@ -25,6 +26,38 @@ TOTAL_NGRAMS = 20
 HAPPY_NGRAMS_TOTAL = 3
 UNHAPPY_NGRAMS_TOTAL = 2
 
+AUTO_REVIEW_VAR_QUANTITY = [
+    'most of the',
+    'majority',
+    'many',
+    'some',
+    'few'
+]
+AUTO_REVIEW_VAR_CUSTOMERS = [
+    'customers',
+    'reviewers'
+]
+AUTO_REVIEW_VAR_POSITIVE_SENTIMENT = [
+    'happy',
+    'like',
+    'love',
+    'satisfied'
+]
+AUTO_REVIEW_VAR_NEGATIVE_SENTIMENT = [
+    'unhappy',
+    'didn\'t like',
+    'didn\'t love'
+]
+AUTO_REVIEW_SENTENCES = [
+    'according to $quantity $customers, $feature', #According to some reviewers, the quality of the product
+    '$customers were $sentiment with $feature', #Customers were happy with easy cleaning.
+    '$quantity $customers were $sentiment with $feature', #Almost everyone was happy with the colors
+    '$quantity $customers found $feature', #Multiple customers found this curtain light weight
+    '$quantity were $sentiment with $feature', #Customers were satisfied with the water-resistant quality
+    '$quantity reported them to be $feature', #Some reported them to be perfect for the bathroom.
+    '$quantity $customers $sentiment $feature' #Few customers didn’t like the plastic rings that came with them.
+]
+
 COLUMN_ASIN = 'asin'
 COLUMN_PRODUCT_TITLE = 'product_title'
 COLUMN_RATING = 'rating'
@@ -37,7 +70,7 @@ REVIEW_TYPE_UNHAPPY = 'Unhappy'
 LABEL_PRODUCT_INFO = 'Product Information'
 LABEL_TOP_NGRAMS = 'Top Ngrams'
 LABEL_VIEW_REVIEWS = 'View Customer Reviews'
-LABEL_AUTO_GENERATE_REVIEWS = 'Auto Generate Reviews'
+LABEL_AUTO_GENERATE_REVIEWS = 'Auto Generate Reviews (Experimental)'
 
 def init_session():
     if 'selected_reviews' not in st.session_state:
@@ -205,7 +238,7 @@ def view_reviews(happy_df, unhappy_df, happy_ngrams, unhappy_ngrams, selected_pr
                                 if len(para_text):
                                     container.warning(para_text)
                                     with col3:
-                                        should_select_paraphrase = True if para_text.strip() in st.session_state.selected_reviews[review_type] else False
+                                        should_sexlect_paraphrase = True if para_text.strip() in st.session_state.selected_reviews[review_type] else False
                                         if st.checkbox('Select paraphrase', key='-'.join([review_type, selected_ngram, 'select-paraphrase-checkbox', str(i), str(j)]), value=should_select_paraphrase):
                                             if para_text.strip() not in st.session_state.selected_reviews[review_type]:
                                                 st.session_state.selected_reviews[review_type].append(para_text.strip())
@@ -232,9 +265,31 @@ def view_reviews(happy_df, unhappy_df, happy_ngrams, unhappy_ngrams, selected_pr
                 data = review_type + ' Reviews:\n- ' + '\n- '.join(st.session_state.selected_reviews[review_type])
                 download_text_file("Download", data, file_name)
 
+def construct_review(template_sent, customers, quantity, sentiment, feature):
+    sent = template_sent.replace('$customers', customers)
+    sent = sent.replace('$quantity', quantity)
+    sent = sent.replace('$sentiment', sentiment)
+    sent = sent.replace('$feature', feature) if len(feature) else sent
+
+    return sent.capitalize()
+
+def generate_review(sent, df, ngrams, sentiment_list):
+    customers = random.choice(AUTO_REVIEW_VAR_CUSTOMERS)
+    quantity = random.choice(AUTO_REVIEW_VAR_QUANTITY)
+    sentiment = random.choice(sentiment_list)
+    feature = random.choice(list(df[COLUMN_REVIEW_TITLE]))
+    #feature = random.choice(merge_ngram_words(ngrams))
+    st.markdown('- ' + construct_review(sent, customers, quantity, sentiment, feature))
+
 def auto_generate_reviews(happy_df, unhappy_df, happy_ngrams, unhappy_ngrams):
     with st.expander(LABEL_AUTO_GENERATE_REVIEWS, True):
-        pass
+        st.subheader('Reviewers like these things about the product')
+        for sent in AUTO_REVIEW_SENTENCES:
+            generate_review(sent, happy_df, happy_ngrams, AUTO_REVIEW_VAR_POSITIVE_SENTIMENT)
+        
+        st.subheader('Reviewers don’t like these things')
+        generate_review(random.choice(AUTO_REVIEW_SENTENCES), unhappy_df, unhappy_ngrams, AUTO_REVIEW_VAR_NEGATIVE_SENTIMENT)
+
 
 def main():
     st.set_page_config(APP_NAME, initial_sidebar_state='collapsed')
