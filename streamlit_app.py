@@ -78,6 +78,9 @@ def extract_sentence(text, words):
             sentences.append(sen)
     return sentences
 
+def download_text_file(label, data, file_name):
+    st.download_button(label = label, data = data, file_name = file_name, mime='text/plain')
+
 def main():
     global MUST_INCLUDES, ADDITIONAL_STOPWORDS, DISPLAY_MAX_REVIEWS, HUGGINGFACE_PARAPHRASE_API_URL, TOTAL_NGRAMS, HAPPY_NGRAMS_TOTAL, UNHAPPY_NGRAMS_TOTAL
 
@@ -139,17 +142,16 @@ def main():
                 happy_ngrams = get_ngrams(happy_words, HAPPY_NGRAMS_TOTAL)[:TOTAL_NGRAMS]
                 unhappy_ngrams = get_ngrams(unhappy_words, UNHAPPY_NGRAMS_TOTAL)[:TOTAL_NGRAMS]
 
-                review_type = st.radio('Select Review Type', [REVIEW_TYPE_HAPPY, REVIEW_TYPE_UNHAPPY])
-
-                ngram_list = happy_ngrams if review_type == REVIEW_TYPE_HAPPY else unhappy_ngrams
-
-                display_ngram_chart(review_type, ngram_list)
+                display_ngram_chart(REVIEW_TYPE_HAPPY, happy_ngrams)
+                display_ngram_chart(REVIEW_TYPE_UNHAPPY, unhappy_ngrams)
                 
 
-                st.header('Reviews')
+                st.title('Reviews')
+                review_type = st.radio('Select Review Type', [REVIEW_TYPE_HAPPY, REVIEW_TYPE_UNHAPPY])
                 if 'selected_reviews' not in st.session_state:
                     st.session_state.selected_reviews = {REVIEW_TYPE_HAPPY: [], REVIEW_TYPE_UNHAPPY: []}
 
+                ngram_list = happy_ngrams if review_type == REVIEW_TYPE_HAPPY else unhappy_ngrams
                 selected_ngram = st.selectbox('Select Ngrams', merge_ngram_words(ngram_list))
                 ngram_regex = ''.join(f'.*({w})' for w in selected_ngram.split(' '))
 
@@ -216,18 +218,18 @@ def main():
                         st.write('---')
                         i += 1
                     st.markdown(f'*{min(DISPLAY_MAX_REVIEWS, len(df))} of {len(df)} reviews*')
-                
-            for review_type in [REVIEW_TYPE_HAPPY, REVIEW_TYPE_UNHAPPY]:
-                with st.expander(f'Selected {review_type} Reviews ({len(st.session_state.selected_reviews[review_type])})'):
-                    for review in st.session_state.selected_reviews[review_type]:
-                        st.markdown('* ' + review)
-                        st.write('')
-                    if len(st.session_state.selected_reviews[review_type]):
-                        st.download_button(
-                            label = f"Download",
-                            data=review_type + ' Reviews:\n- ' + '\n- '.join(st.session_state.selected_reviews[review_type]),
-                            file_name = f'{selected_product_asin}-{review_type.lower()}-reviews.txt',
-                            mime='text/plain'
-                        )
+            
+                for review_type in [REVIEW_TYPE_HAPPY, REVIEW_TYPE_UNHAPPY]:                    
+                    total_selected_reviews = len(st.session_state.selected_reviews[review_type])
+                    if total_selected_reviews:
+                        with st.expander(f'Selected {review_type} Reviews ({total_selected_reviews})'):
+                            for review in st.session_state.selected_reviews[review_type]:
+                                st.markdown('* ' + review)
+                                st.write('')
+                            file_name = f'{selected_product_asin}-{review_type.lower()}-reviews.txt'
+                            data = review_type + ' Reviews:\n- ' + '\n- '.join(st.session_state.selected_reviews[review_type])
+                            download_text_file("Download", data, file_name)
+                                    
+                        
 
 main()
